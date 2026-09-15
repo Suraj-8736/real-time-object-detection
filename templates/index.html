@@ -17,35 +17,128 @@
         <h1>Real-Time Object Detection</h1>
 
         <p class="subtitle">
-            AI-powered object detection using YOLO and OpenCV
+            AI-powered object detection using YOLO
         </p>
 
         <div class="camera-box">
 
-            <img src="{{ url_for('video') }}" alt="Camera Feed">
+            <video id="camera" autoplay playsinline></video>
+
+            <canvas id="canvas"></canvas>
+
+            <img id="result" alt="Detection Result">
 
         </div>
 
-        <div class="info">
+        <button id="startBtn" onclick="startCamera()">
+            Start Camera
+        </button>
 
-            <div class="card">
-                <h3>Technology</h3>
-                <p>YOLO + OpenCV</p>
-            </div>
-
-            <div class="card">
-                <h3>Mode</h3>
-                <p>Real-Time</p>
-            </div>
-
-            <div class="card">
-                <h3>Status</h3>
-                <p class="active">● Camera Active</p>
-            </div>
-
-        </div>
+        <p id="status">Camera is off</p>
 
     </div>
+
+    <script>
+
+        const video = document.getElementById("camera");
+        const canvas = document.getElementById("canvas");
+        const result = document.getElementById("result");
+        const statusText = document.getElementById("status");
+
+        let stream = null;
+        let detecting = false;
+
+        async function startCamera() {
+
+            try {
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 1280,
+                        height: 720
+                    },
+                    audio: false
+                });
+
+                video.srcObject = stream;
+
+                statusText.innerText = "Camera Active";
+                statusText.className = "active";
+
+                detecting = true;
+
+                detectFrame();
+
+            } catch (error) {
+
+                console.error(error);
+
+                statusText.innerText =
+                    "Camera permission denied or unavailable";
+
+            }
+        }
+
+
+        async function detectFrame() {
+
+            if (!detecting) {
+                return;
+            }
+
+            if (video.readyState < 2) {
+                requestAnimationFrame(detectFrame);
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.drawImage(
+                video,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            canvas.toBlob(async (blob) => {
+
+                const formData = new FormData();
+
+                formData.append("frame", blob, "frame.jpg");
+
+                try {
+
+                    const response = await fetch("/detect", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Detection failed");
+                    }
+
+                    const imageBlob = await response.blob();
+
+                    const imageUrl = URL.createObjectURL(imageBlob);
+
+                    result.src = imageUrl;
+
+                } catch (error) {
+
+                    console.error(error);
+
+                }
+
+                setTimeout(detectFrame, 150);
+
+            }, "image/jpeg", 0.75);
+        }
+
+    </script>
 
 </body>
 
