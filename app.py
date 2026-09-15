@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
@@ -45,7 +48,8 @@ def detect():
         results = model(
             frame,
             conf=0.35,
-            imgsz=640,
+            imgsz=320,
+            device="cpu",
             verbose=False
         )
     except Exception:

@@ -118,7 +118,19 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error("Detection failed");
+                        let message = `Detection failed (${response.status})`;
+
+                        try {
+                            const error = await response.json();
+                            if (error.error) {
+                                message = error.error;
+                            }
+                        } catch (parseError) {
+                            // Keep the HTTP status when the server returns no JSON.
+                        }
+
+                        statusText.innerText = message;
+                        throw new Error(message);
                     }
 
                     const imageBlob = await response.blob();
