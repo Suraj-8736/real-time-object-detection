@@ -1,14 +1,14 @@
 import os
+from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
-from ultralytics import YOLO
 
 app = Flask(__name__)
 
-MODEL_NAME = "yolo11n.pt"
-model = YOLO(MODEL_NAME)
+MODEL_PATH = Path(__file__).resolve().with_name("yolo11n.pt")
+model = None
 
 
 @app.route("/")
@@ -18,6 +18,8 @@ def index():
 
 @app.route("/detect", methods=["POST"])
 def detect():
+    global model
+
     if "frame" not in request.files:
         return jsonify({"error": "No frame received"}), 400
 
@@ -29,12 +31,26 @@ def detect():
     if frame is None:
         return jsonify({"error": "Invalid image"}), 400
 
-    results = model(
-        frame,
-        conf=0.35,
-        imgsz=640,
-        verbose=False
-    )
+    if not MODEL_PATH.is_file():
+        return jsonify({
+            "error": "Model file is missing. Add yolo11n.pt to the deployment."
+        }), 503
+
+    try:
+        if model is None:
+            from ultralytics import YOLO
+
+            model = YOLO(str(MODEL_PATH))
+
+        results = model(
+            frame,
+            conf=0.35,
+            imgsz=640,
+            verbose=False
+        )
+    except Exception:
+        app.logger.exception("Object detection failed")
+        return jsonify({"error": "Object detection failed"}), 500
 
     annotated_frame = results[0].plot()
 
